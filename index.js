@@ -36,7 +36,7 @@ app.post("/message", async (req, res) => {
       body: JSON.stringify({
         model: "mistral-tiny",
         messages: [
-          { role: "system", content: "Tu es un expert en design. Pose des questions pour évaluer l'utilisateur." },
+          { role: "system", content: "Tu es un expert en expérience client. Dans le cadre d'un partour de formation, tu dois évaluer les compétences, et les connaisances d'un apprenant en quelques questions." },
           { role: "user", content: message }
         ]
       })
