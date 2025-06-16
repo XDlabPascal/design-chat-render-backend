@@ -35,17 +35,18 @@ app.post("/message", async (req, res) => {
     const data = await mistralResponse.json();
     const reply = data.choices?.[0]?.message?.content || "Je n’ai pas pu générer de réponse.";
 
-    const emailBody = \`
-      Voici la synthèse de votre échange avec l'IA :
+    // --- À partir de la ligne où commence emailBody ---
+const emailBody = `
+Voici la synthèse de votre échange avec l'IA :
 
-      Question : \${message}
-      Réponse : \${reply}
+Question : ${message}
+Réponse : ${reply}
 
-      👉 Voici quelques vidéos recommandées pour progresser :
-      - https://vimeo.com/123456
-      - https://vimeo.com/234567
-      - https://vimeo.com/345678
-    \`;
+👉 Voici quelques vidéos recommandées pour progresser :
+- https://vimeo.com/123456
+- https://vimeo.com/234567
+- https://vimeo.com/345678
+`;
 
     await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
