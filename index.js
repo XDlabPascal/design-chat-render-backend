@@ -1,15 +1,14 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import fetch from 'node-fetch'; // installe via `npm install node-fetch`
+// index.js — backend Design Chat (Render)
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import fetch from "node-fetch";
 
+dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 10000;
-
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// 🧠 Prompt de rôle injecté
 const systemPrompt = `
 Tu es un expert en design UX/UI et en pédagogie.
 Ton objectif est d’évaluer le niveau d’un apprenant qui suit un parcours de formation en conception centrée utilisateur.
@@ -19,35 +18,58 @@ Sois bienveillant, clair et encourageant.
 Pose une première question maintenant, puis attends sa réponse avant de continuer.
 `;
 
-app.post('/message', async (req, res) => {
-  const userMessage = req.body.message;
+app.post("/message", async (req, res) => {
+  const { message, email } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ error: "Le champ 'message' est requis." });
+  }
 
   try {
-    const response = await fetch('http://localhost:11434/api/generate', { // adapte l'URL si nécessaire
-      method: 'POST',
+    /* ---- Appel API Mistral Cloud ---- */
+    const resp = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: 'mistral', // nom du modèle chargé dans Ollama, LM Studio, etc.
-        prompt: `${systemPrompt}\n\nUtilisateur : ${userMessage}\nIA :`, // injecte le prompt ici
-        stream: false
+        model: "mistral-small-latest",      // ou tiny / medium / large selon ton plan
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message }
+        ],
+        temperature: 0.7
       })
     });
 
-    const data = await response.json();
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error("Mistral API error:", errText);
+      return res.status(500).json({ error: "Appel Mistral échoué" });
+    }
 
-    res.json({ reply: data.response || 'Réponse non disponible.' });
-  } catch (error) {
-    console.error('Erreur lors de l’appel au modèle :', error);
-    res.status(500).json({ reply: 'Erreur serveur ou IA inaccessible.' });
+    const data = await resp.json();
+    const reply =
+      data.choices?.[0]?.message?.content ??
+      "Désolé, je n'ai pas pu générer de réponse.";
+
+    /* ---- (Optionnel) Envoi d'e-mail via SendGrid ---- */
+    // … garde ton code SendGrid ici si tu envoies la synthèse par mail …
+
+    return res.json({ reply });
+  } catch (err) {
+    console.error("Erreur backend:", err);
+    return res.status(500).json({ error: "Erreur serveur." });
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('Backend Design Chat opérationnel !');
+/* Route GET racine (vérification rapide) */
+app.get("/", (req, res) => {
+  res.send("✅ API Design Chat opérationnelle");
 });
 
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Serveur lancé sur http://localhost:${PORT}`);
+  console.log(`✅ Serveur lancé sur port ${PORT}`);
 });
