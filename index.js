@@ -1,83 +1,120 @@
 import express from 'express';
 import cors from 'cors';
-import fetch from 'node-fetch'; // Assure-toi que node-fetch est installé
+import bodyParser from 'body-parser';
+import nodemailer from 'nodemailer';
+import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-// Exemple d'URL et clé d'API Mistral (à adapter)
-const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
-const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
+let conversationHistory = [];
+let evaluationComplete = false;
+let finalSummary = null;
 
-// Fonction pour construire le prompt
-function buildPrompt(userMessage) {
-  return `
-Tu es un expert en design UX/UI. Tu veux évaluer le niveau d'un apprenant en posant 5 questions simples, puis tu lui proposes une playlist de 10 vidéos YouTube en français pour progresser. 
-Enfin, tu prépares une synthèse claire avec :
-- le niveau global (Débutant, Intermédiaire, Avancé),
-- les points forts,
-- les points faibles,
-- la liste des 10 vidéos.
+const initialPrompt = `
+Tu es un expert en design UX/UI. Tu dois évaluer le niveau d’un apprenant qui suit un parcours de formation.
+1. Pose-lui 5 questions simples pour identifier son niveau.
+2. En te basant sur ses réponses, génère une synthèse pédagogique : niveau global, points forts, faiblesses.
+3. Recommande-lui une playlist de 10 vidéos YouTube en français pour progresser.
+À la fin, rédige une synthèse structurée dans ce format :
 
-Voici la réponse de l’apprenant : "${userMessage}"
-
-Format de réponse JSON strict, avec clés : niveau, pointsForts, pointsFaibles, videos (tableau de liens).
-
-Donne uniquement la réponse JSON, rien d’autre.
+🎯 Niveau estimé : 
+✅ Points forts :
+⚠️ Faiblesses :
+📺 Playlist recommandée :
+- [Titre](Lien)
+📝 Synthèse :
 `;
-}
 
 app.post('/message', async (req, res) => {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: "Pas de message reçu." });
+  const userMessage = req.body.message;
+  if (!userMessage) return res.status(400).send({ error: 'Message requis' });
+
+  conversationHistory.push({ role: 'user', content: userMessage });
+
+  const payload = {
+    model: 'mistral-large',
+    messages: [
+      { role: 'system', content: initialPrompt },
+      ...conversationHistory,
+    ],
+    temperature: 0.7,
+  };
 
   try {
-    const prompt = buildPrompt(message);
-
-    // Envoi à Mistral (modèle, headers, etc. à adapter selon l’API)
-    const apiResponse = await fetch(MISTRAL_API_URL, {
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MISTRAL_API_KEY}`
       },
-      body: JSON.stringify({
-        model: "mistral-7b-chat",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
-        temperature: 0.7
-      }),
+      body: JSON.stringify(payload),
     });
 
-    const data = await apiResponse.json();
+    const data = await response.json();
+    const botReply = data.choices[0].message.content;
 
-    if (!data.choices || data.choices.length === 0) {
-      return res.status(500).json({ error: "Réponse inattendue de l'IA." });
+    conversationHistory.push({ role: 'assistant', content: botReply });
+
+    // Si la synthèse complète est incluse
+    if (
+      botReply.includes('🎯 Niveau estimé') &&
+      botReply.includes('📺 Playlist recommandée') &&
+      botReply.includes('📝 Synthèse')
+    ) {
+      evaluationComplete = true;
+      finalSummary = botReply;
     }
 
-    const content = data.choices[0].message.content.trim();
+    res.send({ reply: botReply });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ error: 'Erreur serveur ou IA inaccessible.' });
+  }
+});
 
-    // Parse JSON renvoyé par l'IA
-    let synthese;
-    try {
-      synthese = JSON.parse(content);
-    } catch (e) {
-      // Si l’IA ne renvoie pas un JSON parfait, renvoyer en texte simple
-      return res.json({ reply: content });
-    }
+app.get('/summary', (req, res) => {
+  if (evaluationComplete && finalSummary) {
+    res.send({ summary: finalSummary });
+  } else {
+    res.status(404).send({ error: 'Synthèse non disponible.' });
+  }
+});
 
-    // Envoie la synthèse complète au front
-    res.json({ synthese });
+app.post('/send-email', async (req, res) => {
+  const { email } = req.body;
+  if (!email || !finalSummary) {
+    return res.status(400).send({ error: 'Email ou synthèse manquante' });
+  }
 
+  try {
+    let transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Synthèse de votre évaluation UX/UI',
+      text: finalSummary,
+    });
+
+    res.send({ success: true });
   } catch (error) {
-    console.error("Erreur serveur :", error);
-    res.status(500).json({ error: "Erreur serveur ou IA inaccessible." });
+    console.error(error);
+    res.status(500).send({ error: 'Erreur envoi email' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Serveur lancé sur http://localhost:${PORT}`);
+  console.log(`✅ Serveur lancé sur http://localhost:${PORT}`);
 });
