@@ -114,7 +114,9 @@ app.post('/send-email', async (req, res) => {
     res.status(500).send({ error: 'Erreur envoi email' });
   }
 });
-
+app.get('/', (_, res) => {
+  res.send('✅ Backend Design-Chat opérationnel');
+});
 app.listen(PORT, () => {
   console.log(`✅ Serveur lancé sur http://localhost:${PORT}`);
 });
