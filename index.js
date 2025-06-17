@@ -1,9 +1,11 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import nodemailer from 'nodemailer';
-import 'dotenv/config';
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+import fetch from "node-fetch";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -11,100 +13,111 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const mistralEndpoint = 'https://api.mistral.ai/v1/chat/completions';
-const mistralApiKey = process.env.MISTRAL_API_KEY;
+// Fonction pour interroger Mistral (via ton proxy ou API personnelle)
+async function askMistral(messages) {
+  const prompt = `
+Tu es un expert en design UX/UI. Tu vas poser 5 questions simples à un apprenant pour évaluer son niveau en conception centrée utilisateur.
+Ensuite, tu résumeras le niveau global, rédigeras une synthèse de ses réponses, et proposeras une playlist de 10 vidéos YouTube en français adaptées à son niveau.
 
-const systemPrompt = `
-Tu es un expert en design UX/UI et en pédagogie.
-
-OBJECTIF  
---------
-Évaluer le niveau global d’un apprenant en conception centrée utilisateur, puis lui recommander des ressources adaptées à son niveau.
-
-RÈGLES DU DIALOGUE  
-------------------  
-1. Pose EXACTEMENT 5 questions simples, ouvertes et progressives.  
-2. Pose UNE seule question à la fois ; attends la réponse avant de poursuivre.  
-3. Ne donne aucun indice de correction avant la fin des 5 questions.  
-4. Si la réponse est vide ou hors-sujet, reformule ou clarifie la question.
-
-À LA FIN DES 5 QUESTIONS  
-------------------------  
-Quand tu as reçu les 5 réponses, génère :  
-
-**1. UNE SYNTHÈSE DU NIVEAU :**  
-- Niveau global : <débutant | intermédiaire | avancé>  
-- Points forts : <liste concise>  
-- Points à améliorer : <liste concise>  
-
-**2. UNE PLAYLIST DE 10 VIDÉOS YOUTUBE EN FRANÇAIS :**  
-- Donne UNIQUEMENT des vidéos YouTube.  
-- Le contenu doit être clair, pédagogique, et destiné à des designers UX/UI.  
-- Priorise les vidéos en langue française ou avec sous-titres français.  
-- Présente chaque vidéo ainsi :
-  - <Titre de la vidéo> – <URL YouTube>
-
-DÉBUT DE LA CONVERSATION  
-------------------------  
-Commence immédiatement avec cette première question :  
-« Pour commencer, peux-tu expliquer ce que signifie pour toi l’expérience utilisateur (UX) ? »
+Conversation actuelle :
+${messages.map(m => `${m.sender === 'user' ? 'Utilisateur' : 'IA'} : ${m.text}`).join('\n')}
 `;
 
-app.post('/message', async (req, res) => {
-  const { message, email } = req.body;
+  const response = await fetch(process.env.MISTRAL_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "mistral-medium",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
+    })
+  });
 
+  const data = await response.json();
+  const output = data.choices?.[0]?.message?.content || "Je n'ai pas pu répondre.";
+
+  // Si on arrive à 5 réponses, basculer en mode "summary"
+  const userMessages = messages.filter(m => m.sender === 'user');
+  const isSummary = userMessages.length >= 5;
+
+  if (isSummary) {
+    return {
+      phase: "summary",
+      summary: {
+        niveau: "Intermédiaire", // Optionnel : tu peux extraire cela de `output`
+        synthese: output,
+        videos: extractYouTubeLinks(output)
+      }
+    };
+  }
+
+  return {
+    reply: output,
+    phase: "chat"
+  };
+}
+
+// Extraire les URLs YouTube depuis la réponse texte
+function extractYouTubeLinks(text) {
+  const urlRegex = /(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[\w-]+)/g;
+  return text.match(urlRegex) || [];
+}
+
+// Route principale de chat
+app.post("/message", async (req, res) => {
+  const { messages } = req.body;
   try {
-    const response = await fetch(mistralEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${mistralApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'mistral-medium',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.7,
-      })
-    });
-
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || 'Réponse indisponible.';
-
-    if (email && reply.includes('Niveau global')) {
-      await sendSummaryByEmail(email, reply);
-    }
-
-    res.json({ reply });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ reply: "Erreur serveur ou IA inaccessible." });
+    const result = await askMistral(messages);
+    res.json(result);
+  } catch (error) {
+    console.error("Erreur Mistral:", error);
+    res.status(500).json({ error: "Erreur IA" });
   }
 });
 
-async function sendSummaryByEmail(to, content) {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER, // adresse Gmail
-      pass: process.env.EMAIL_PASS  // mot de passe ou app password
-    }
-  });
+// Route pour envoyer la synthèse par e-mail
+app.post("/send-summary", async (req, res) => {
+  const { email, summary } = req.body;
 
-  await transporter.sendMail({
-    from: `"Coach IA Design" <${process.env.EMAIL_USER}>`,
-    to,
-    subject: "Synthèse et ressources pour progresser en design UX",
-    text: content
-  });
-}
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com", // Ou autre SMTP
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS
+      }
+    });
 
-app.get('/', (req, res) => {
-  res.send("Serveur IA Design prêt.");
+    const htmlBody = `
+      <h2>🎓 Résultats de ton évaluation en design UX/UI</h2>
+      <p><strong>Niveau estimé :</strong> ${summary.niveau}</p>
+      <p><strong>Synthèse :</strong><br>${summary.synthese}</p>
+      <h3>🎥 Playlist recommandée :</h3>
+      <ul>
+        ${summary.videos.map(link => `<li><a href="${link}">${link}</a></li>`).join("")}
+      </ul>
+    `;
+
+    await transporter.sendMail({
+      from: process.env.MAIL_USER,
+      to: email,
+      subject: "🎓 Synthèse de ton évaluation UX/UI",
+      html: htmlBody
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Erreur email:", error);
+    res.status(500).json({ error: "Erreur d'envoi d'email" });
+  }
 });
 
+// Lancer le serveur
 app.listen(PORT, () => {
   console.log(`✅ Serveur lancé sur http://localhost:${PORT}`);
 });
