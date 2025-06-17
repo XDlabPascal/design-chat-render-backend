@@ -21,7 +21,7 @@ Tu es un expert en design UX/UI. Tu dois évaluer le niveau d’un apprenant qui
 1. Pose-lui 5 questions simples pour identifier son niveau.
 2. En te basant sur ses réponses, génère une synthèse pédagogique : niveau global, points forts, faiblesses.
 3. Recommande-lui une playlist de 10 vidéos YouTube en français pour progresser.
-À la fin, rédige une synthèse structurée dans ce format :
+À la fin, rédige une synthès structurée dans ce format :
 
 🎯 Niveau estimé : 
 ✅ Points forts :
@@ -55,7 +55,11 @@ app.post('/message', async (req, res) => {
       },
       body: JSON.stringify(payload),
     });
-
+if (!response.ok) {
+  const errorText = await response.text();
+  console.error('🛑 Mistral API ERROR:', response.status, errorText);
+  return res.status(500).json({ error: 'Erreur Mistral: ' + response.status });
+}
     const data = await response.json();
     const botReply = data.choices[0].message.content;
 
