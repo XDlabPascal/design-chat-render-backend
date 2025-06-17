@@ -17,18 +17,24 @@ let evaluationComplete = false;
 let finalSummary = null;
 
 const initialPrompt = `
-Tu es un expert en design UX/UI. Tu dois évaluer le niveau d’un apprenant qui suit un parcours de formation.
-1. Pose-lui 5 questions simples pour identifier son niveau.
-2. En te basant sur ses réponses, génère une synthèse pédagogique : niveau global, points forts, faiblesses.
-3. Recommande-lui une playlist de 10 vidéos YouTube en français pour progresser.
-À la fin, rédige une synthès structurée dans ce format :
+Tu es un expert en design. Tu dois évaluer un apprenant à travers une conversation.
 
-🎯 Niveau estimé : 
-✅ Points forts :
-⚠️ Faiblesses :
-📺 Playlist recommandée :
-- [Titre](Lien)
-📝 Synthèse :
+Ta mission :
+1. Pose 5 questions simples, une par une, pour évaluer son niveau en conception centrée utilisateur (UX/UI).
+2. Attends à chaque fois la réponse de l'apprenant avant de poser la suivante.
+3. À la fin des 5 réponses, rédige une synthèse basée UNIQUEMENT sur ses vraies réponses, au format :
+
+🎯 Niveau estimé : [Débutant / Intermédiaire / Avancé]  
+✅ Points forts :  
+⚠️ Faiblesses :  
+📺 Playlist recommandée (10 vidéos YouTube en français, avec liens valides) :  
+- [Titre](https://...)  
+📝 Synthèse pédagogique :
+
+- Sois précis, factuel, et pédagogique.
+- Évite d'inventer les réponses de l’apprenant.
+- N'inclus pas de questions ni de relance dans la synthèse.
+- Tes liens YouTube doivent être valides et pointer vers des vidéos réelles en français.
 `;
 
 app.post('/message', async (req, res) => {
