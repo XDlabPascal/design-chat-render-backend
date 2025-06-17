@@ -37,14 +37,14 @@ app.post('/message', async (req, res) => {
 
   conversationHistory.push({ role: 'user', content: userMessage });
 
-  const payload = {
-    model: 'mistral-large',
-    messages: [
-      { role: 'system', content: initialPrompt },
-      ...conversationHistory,
-    ],
-    temperature: 0.7,
-  };
+const payload = {
+  model: 'mistral-small-latest',   // ou medium / large -latest
+  messages: [
+    { role: 'system', content: initialPrompt },
+    ...conversationHistory
+  ],
+  temperature: 0.7
+};
 
   try {
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
