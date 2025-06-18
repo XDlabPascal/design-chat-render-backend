@@ -100,13 +100,15 @@ app.post('/send-email', async (req, res) => {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,   // adresse Gmail
-        pass: process.env.EMAIL_PASS    // mot de passe d’application
-      }
-    });
+   let transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
     await transporter.sendMail({
       from   : process.env.EMAIL_USER,
