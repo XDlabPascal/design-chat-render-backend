@@ -127,7 +127,13 @@ app.post('/message', async (req, res) => {
             body: JSON.stringify(synthPayload),
           },
         );
-
+if (!synthResp.ok) {
+  const txt = await synthResp.text();
+  console.error('Mistral synthèse ERROR', synthResp.status, txt);
+  return res
+    .status(500)
+    .json({ error: 'Erreur Mistral synthèse ' + synthResp.status });
+}
         const synthData = await synthResp.json();
         finalSummary = synthData.choices[0].message.content;
       }
