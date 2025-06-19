@@ -99,47 +99,52 @@ app.post('/message', async (req, res) => {
     const data = await resp.json();
     const botReply = data.choices[0].message.content;
 
-    /* ---------- gestion de la synthèse finale ---------- */
-    if (done) {
-      // Si la réponse contient déjà la synthèse (🎯), on la stocke.
-      if (botReply.includes('🎯')) {
-        finalSummary = botReply;
-      } else {
-        // Sinon, second appel pour demander la synthèse.
-        const synthPayload = {
-          model: 'mistral-small-latest',
-          temperature: 0.7,
-         { role: 'system', content: SYSTEM_PROMPT },
-    ...shortHistory,
-    { role: 'assistant', content: botReply },             // ⏳ Merci !
-    { role: 'user',      content: 'Rédige maintenant la synthèse finale.' }
-          ],
-        };
+/* ---------- gestion de la synthèse finale ---------- */
+if (done) {
+  // Si la réponse contient déjà la synthèse (🎯), on la stocke.
+  if (botReply.includes('🎯')) {
+    finalSummary = botReply;
+  } else {
+    // Sinon, second appel pour demander la synthèse.
+    // Ne garder que les 12 derniers messages pour éviter "input too long"
+    const shortHistory = history.slice(-12);
 
-        const synthResp = await fetch(
-          'https://api.mistral.ai/v1/chat/completions',
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(synthPayload),
-          },
-        );
-if (!synthResp.ok) {
-  const txt = await synthResp.text();
-  console.error('Mistral synthèse ERROR', synthResp.status, txt);
-  return res
-    .status(500)
-    .json({ error: 'Erreur Mistral synthèse ' + synthResp.status });
-}
-        const synthData = await synthResp.json();
-        finalSummary = synthData.choices[0].message.content;
-      }
+    const synthPayload = {
+      model: 'mistral-small-latest',
+      temperature: 0.7,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...shortHistory,
+        { role: 'assistant', content: botReply }, // ⏳ Merci !
+        { role: 'user', content: 'Rédige maintenant la synthèse finale.' },
+      ],
+    };
+
+    const synthResp = await fetch(
+      'https://api.mistral.ai/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(synthPayload),
+      },
+    );
+
+    if (!synthResp.ok) {
+      const txt = await synthResp.text();
+      console.error('Mistral synthèse ERROR', synthResp.status, txt);
+      return res
+        .status(500)
+        .json({ error: 'Erreur Mistral synthèse ' + synthResp.status });
     }
 
-    /* ---------------------------------------------------- */
+    const synthData = await synthResp.json();
+    finalSummary = synthData.choices[0].message.content;
+  }
+}
+/* ---------------------------------------------------- */
 
     res.json({ reply: botReply, done });
   } catch (err) {
