@@ -42,14 +42,12 @@ Ta mission :
 
 5. Ensuite, rédige une synthèse structurée comprenant :
 
-<p><span class="material-icons" style="vertical-align: middle; color:#F16E00;">track_changes</span> <strong>Niveau estimé :</strong></p>
-<p><span class="material-icons" style="vertical-align: middle; color:green;">check_circle</span> <strong>Points forts :</strong></p>
-<p><span class="material-icons" style="vertical-align: middle; color:#fbbf24;">warning</span> <strong>Faiblesses :</strong></p>
-<p><span class="material-icons" style="vertical-align: middle; color:#F16E00;">play_circle</span> <strong>Playlist recommandée (10 vidéos YouTube en français) :</strong></p>
-<ul>
-  <li><a href="https://...">Titre de la vidéo</a></li>
-</ul>
-<p><span class="material-icons" style="vertical-align: middle; color:#3b82f6;">description</span> <strong>Synthèse :</strong></p>
+🎯 Niveau estimé :  
+✅ Points forts :  
+⚠️ Faiblesses :  
+📺 Playlist recommandée (10 vidéos YouTube en français) :  
+- [Titre de la vidéo](https://...)  
+📝 Synthèse :
 
 Contraintes :
 • Formate chaque QCM comme ceci :  
