@@ -79,7 +79,7 @@ app.post('/message', async (req, res) => {
 
   // nombre de réponses utilisateur
   const userCount = history.filter((m) => m.role === 'user').length;
-  const done = userCount >= 5;
+  const done      = userCount >= 5;
 
   const payload = {
     model: 'mistral-small-latest',
@@ -88,8 +88,9 @@ app.post('/message', async (req, res) => {
   };
 
   try {
+    /* ---- 1er appel : question (ou ⏳) ---- */
     const resp = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
+      method : 'POST',
       headers: {
         Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
         'Content-Type': 'application/json',
@@ -103,8 +104,65 @@ app.post('/message', async (req, res) => {
       return res.status(500).json({ error: 'Erreur Mistral ' + resp.status });
     }
 
-    const data = await resp.json();
+    const data     = await resp.json();
     const botReply = data.choices[0].message.content;
+
+    /* ---------- gestion synthèse finale ---------- */
+    if (done) {
+      // Si la synthèse est déjà incluse (🎯), on la stocke directement.
+      if (botReply.includes('🎯')) {
+        finalSummary = botReply;
+      } else {
+        // Sinon, on déclenche un second appel ASYNCHRONE (non bloquant)
+        (async () => {
+          try {
+            const shortHistory = history.slice(-12); // limite de contexte
+            const synthPayload = {
+              model: 'mistral-small-latest',
+              temperature: 0.7,
+              messages: [
+                { role: 'system', content: SYSTEM_PROMPT },
+                ...shortHistory,
+                { role: 'assistant', content: botReply }, // ⏳ Merci !
+                { role: 'user', content: 'Rédige maintenant la synthèse finale.' },
+              ],
+            };
+
+            const synthResp = await fetch(
+              'https://api.mistral.ai/v1/chat/completions',
+              {
+                method : 'POST',
+                headers: {
+                  Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(synthPayload),
+              },
+            );
+
+            if (!synthResp.ok) {
+              const txt = await synthResp.text();
+              console.error('Mistral synthèse ERROR', synthResp.status, txt);
+              return; // on ne bloque pas la réponse client
+            }
+
+            const synthData = await synthResp.json();
+            finalSummary    = synthData.choices[0].message.content;
+          } catch (e) {
+            console.error('Async synthèse fetch failed', e.message);
+          }
+        })();
+      }
+    }
+    /* -------------------------------------------- */
+
+    // Réponse immédiate au client
+    res.json({ reply: botReply, done });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur / fetch' });
+  }
+});
 
 /* ---------- gestion de la synthèse finale ---------- */
 if (done) {
