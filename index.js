@@ -109,10 +109,10 @@ app.post('/message', async (req, res) => {
         const synthPayload = {
           model: 'mistral-small-latest',
           temperature: 0.7,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            ...history,
-            { role: 'assistant', content: botReply }, // ⏳ Merci !
+         { role: 'system', content: SYSTEM_PROMPT },
+    ...shortHistory,
+    { role: 'assistant', content: botReply },             // ⏳ Merci !
+    { role: 'user',      content: 'Rédige maintenant la synthèse finale.' }
           ],
         };
 
