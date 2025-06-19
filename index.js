@@ -7,13 +7,13 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(bodyParser.json());
 
-let finalSummary = null;        // mémorise la synthèse finale
+let finalSummary = null; // mémorise la synthèse finale
 
 /* ───────────────── SYSTEM PROMPT MISTRAL ───────────────────── */
 const SYSTEM_PROMPT = `
@@ -36,7 +36,6 @@ Ta mission :
 
 3. Pose **une seule question par message**, soit QCM soit ouverte.  
    Ne mélange jamais plusieurs questions dans une même réponse.  
-   Ne mets jamais une question ouverte et un QCM ensemble dans la même réponse.
 
 4. Quand les 5 réponses sont données, affiche d'abord uniquement :  
    ⏳ Merci ! Je prépare ta synthèse…
@@ -71,28 +70,24 @@ app.post('/message', async (req, res) => {
     return res.status(400).json({ error: 'history manquant ou vide' });
   }
 
-  // Compte le nombre de réponses utilisateur déjà données
-  const userCount = history.filter(m => m.role === 'user').length;
-  const done      = userCount >= 5;
+  // nombre de réponses utilisateur
+  const userCount = history.filter((m) => m.role === 'user').length;
+  const done = userCount >= 5;
 
-  // Construit le payload pour Mistral
   const payload = {
     model: 'mistral-small-latest',
     temperature: 0.7,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history
-    ]
+    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history],
   };
 
   try {
     const resp = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method : 'POST',
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
-        'Content-Type' : 'application/json'
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!resp.ok) {
@@ -101,11 +96,44 @@ app.post('/message', async (req, res) => {
       return res.status(500).json({ error: 'Erreur Mistral ' + resp.status });
     }
 
-    const data     = await resp.json();
+    const data = await resp.json();
     const botReply = data.choices[0].message.content;
 
-    // Si c'est la synthèse, mémorise-la
-    if (done) finalSummary = botReply;
+    /* ---------- gestion de la synthèse finale ---------- */
+    if (done) {
+      // Si la réponse contient déjà la synthèse (🎯), on la stocke.
+      if (botReply.includes('🎯')) {
+        finalSummary = botReply;
+      } else {
+        // Sinon, second appel pour demander la synthèse.
+        const synthPayload = {
+          model: 'mistral-small-latest',
+          temperature: 0.7,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...history,
+            { role: 'assistant', content: botReply }, // ⏳ Merci !
+          ],
+        };
+
+        const synthResp = await fetch(
+          'https://api.mistral.ai/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(synthPayload),
+          },
+        );
+
+        const synthData = await synthResp.json();
+        finalSummary = synthData.choices[0].message.content;
+      }
+    }
+
+    /* ---------------------------------------------------- */
 
     res.json({ reply: botReply, done });
   } catch (err) {
@@ -128,21 +156,21 @@ app.post('/send-email', async (req, res) => {
   }
 
   try {
-   let transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
     await transporter.sendMail({
-      from   : process.env.EMAIL_USER,
-      to     : email,
+      from: process.env.EMAIL_USER,
+      to: email,
       subject: 'Votre synthèse UX/UI',
-      text   : finalSummary
+      text: finalSummary,
     });
 
     res.json({ success: true });
