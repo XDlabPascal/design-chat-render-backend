@@ -191,7 +191,7 @@ app.post('/send-email', async (req, res) => {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
-      subject: 'Votre synthèse UX/UI',
+      subject: 'Ton évaluation en design.',
       text: finalSummary,
     });
 
