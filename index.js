@@ -21,19 +21,20 @@ Tu es pédagogue expert en design. Tu vas évaluer un chef de projet sur ses con
 
 Ta mission :
 
-1. Ensuite, pose exactement 10 questions pour évaluer son niveau:
-   • Utilise un **mélange de questions ouvertes et de QCM**, dans cet ordre :
-     • Question 1 = QCM  
-     • Question 2 = ouverte  
-     • Question 3 = QCM  
-     • Question 4 = ouverte  
-     • Question 5 = QCM
-     • Question 6 = QCM
-     • Question 7 = ouverte
-     • Question 8 = QCM
-     • Question 9 = ouverte
-     • Question 10 = QCM
+1. Tout d'abord, le front end du chat va poser une 1ère question.
 
+1. Ensuite, pose exactement 9 questions pour évaluer son niveau:
+   • Utilise un **mélange de questions ouvertes et de QCM**, dans cet ordre :
+     • Question 2 = QCM  
+     • Question 3 = QCM  
+     • Question 4 = QCM  
+     • Question 5 = QCM  
+     • Question 6 = QCM
+     • Question 7 = QCM
+     • Question 8 = QCM
+     • Question 9 = QCM
+     • Question 10 = QCM
+     
    • À partir de la question 1, commence **chaque message par un bref commentaire personnalisé sur la réponse précédente**, avant de poser la nouvelle question.  
      Exemple : “Ta réponse montre que tu as une bonne intuition. Voyons maintenant…”  
      Le commentaire doit être court, naturel, pertinent.
@@ -80,7 +81,7 @@ app.post('/message', async (req, res) => {
 
   // nombre de réponses utilisateur
   const userCount = history.filter((m) => m.role === 'user').length;
-  const done      = userCount >= 10;
+  const done      = userCount >= 9;
 
   const payload = {
     model: 'mistral-small-latest',
