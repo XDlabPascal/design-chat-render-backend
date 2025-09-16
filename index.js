@@ -80,7 +80,7 @@ app.post('/message', async (req, res) => {
 
   // nombre de réponses utilisateur
   const userCount = history.filter((m) => m.role === 'user').length;
-  const done      = userCount >= 5;
+  const done      = userCount >= 10;
 
   const payload = {
     model: 'mistral-small-latest',
