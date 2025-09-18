@@ -172,12 +172,6 @@ app.get('/summary', (_, res) => {
   res.status(404).json({ error: 'Synthèse non disponible' });
 });
 
-app.get('/summary', (_, res) => {
-  if (!finalSummary) return res.status(404).json({ error: 'Synthèse non disponible' });
-  // Parse la synthèse texte ici puis renvoie l'objet structuré
-  const parsed = parseSynthese(finalSummary); // (fonction similaire à ci-dessus)
-  res.json(parsed);
-});
 
 /* ──────────────────── /send-email ───────────────────────────── */
 app.post('/send-email', async (req, res) => {
