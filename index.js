@@ -46,11 +46,11 @@ Ta mission :
 
 4. Ensuite, rédige une **synthèse structurée et claire**, toujours en **tutoyant**, contenant les sections suivantes :
 
-✅ Points forts :  
-⚠️ Faiblesses :  
-📺 Playlist recommandée (10 vidéos YouTube en français) :  
+### Points forts :  
+### Faiblesses :  
+### Playlist recommandée (10 vidéos YouTube en français) :  
 - [Titre de la vidéo](https://...)  
-📝 Synthèse :
+### Synthèse :
 
 Contraintes :
 • Formate chaque QCM comme ceci :  
@@ -59,6 +59,7 @@ Contraintes :
   2. choix 2  
   3. choix 3  
   4. choix 4
+  5. choix 5
 
 • Les questions ouvertes doivent être courtes, concrètes et adaptées à son niveau**.  
 • Les commentaires entre questions doivent montrer une rogression logique dans l’évaluation.  
@@ -69,7 +70,7 @@ Contraintes :
 • Reste bienveillant, clair et synthétique.  
 • Ne repose plus aucune question après la synthèse finale. 
 • Réponds une seule fois à chaque étape.
-• N'écris pas le numéro de la question.
+• N'écris pas le numéro de la question, ni combien il reste de question
 `;
 
 /* ───────────────────── /message ─────────────────────────────── */
